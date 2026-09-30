@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import numpy as np
-from sklearn.model_selection import RandomizedSearchCV, StratifiedShuffleSplit
+from sklearn.model_selection import RandomizedSearchCV
 from sklearn.utils.class_weight import compute_sample_weight
 from lightgbm import LGBMClassifier
+from src.models._common import stratified_subsample
 
 import config
 
@@ -15,16 +16,6 @@ LGBM_PARAM_DIST = {
     "learning_rate": [0.05, 0.1, 0.15],
 }
 
-
-def _stratified_subsample(X, y, size):
-    if len(y) <= size:
-        return X, np.asarray(y)
-    splitter = StratifiedShuffleSplit(
-        n_splits=1, train_size=size, random_state=config.SEED
-    )
-    idx, _ = next(splitter.split(X, y))
-    X_sub = X[idx] if hasattr(X, "__getitem__") else np.asarray(X)[idx]
-    return X_sub, np.asarray(y)[idx]
 
 
 def tune_lgbm(X_train, y_train, params=None):
@@ -40,7 +31,7 @@ def tune_lgbm(X_train, y_train, params=None):
         final.fit(X_train, y_train, sample_weight=sw_full)
         return final, None, params
 
-    X_sub, y_sub = _stratified_subsample(
+    X_sub, y_sub = stratified_subsample(
         X_train, y_train, config.TUNING_SUBSAMPLE_SIZE
     )
     sw_sub = compute_sample_weight("balanced", y_sub)
