@@ -72,6 +72,7 @@ The pipeline uses these splits directly. The test set is used **once**, at the v
 ## 3. Project Structure
 
 ```text
+This project structure is after a full pipeline run.
 enzyme_classifier/
 │
 ├── config.py
