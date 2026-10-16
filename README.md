@@ -422,7 +422,7 @@ Additionally, bootstrap 95% confidence intervals are computed for the stacking e
 
 All outputs are saved under `outputs/`.
 
-### Aggregate results
+### Aggregate results ( AAC and DPC)
 
 | Feature | Model | Accuracy | Macro Precision | Macro Recall | Macro F1 | Weighted F1 | MCC | Macro AUPRC |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
