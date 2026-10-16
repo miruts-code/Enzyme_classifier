@@ -424,24 +424,22 @@ All outputs are saved under `outputs/`.
 
 ### Aggregate results
 
-| File                | Content                                                                                                                                                                            |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `metrics.csv`       | Main results table — one row per model × feature set (28 rows). Columns: feature, model, accuracy, macro_precision, macro_recall, macro_f1, weighted_f1, mcc, macro_auprc, params. |
-| `per_class_all.csv` | Per-class precision, recall, F1, support for every model.                                                                                                                          |
-| `bootstrap_cis.csv` | 95% bootstrap CIs for the stacking ensemble's macro F1.                                                                                                                            |
-
-### Plots (only for the target feature set — AAC)
-
-The pipeline generates plots only for the feature set configured in `config.TARGET_FEATURE_FOR_PLOTS` (default: `"AAC"`). Set it to `None` to skip plots entirely.
-
-| File                      | Content                                     |
-| ------------------------- | ------------------------------------------- |
-| `confusion_RF_AAC.png`    | Normalized confusion matrix for RF on AAC   |
-| `confusion_LGBM_AAC.png`  | Normalized confusion matrix for LGBM on AAC |
-| `importance_RF_AAC.png`   | Top-30 feature importance for RF            |
-| `importance_LGBM_AAC.png` | Top-30 feature importance for LGBM          |
-| `roc_LinearSVM_AAC.png`   | One-vs-rest ROC curves for LinearSVM        |
-| `shap_LGBM_AAC.png`       | SHAP feature importance for LGBM            |
+| Feature | Model | Accuracy | Macro Precision | Macro Recall | Macro F1 | Weighted F1 | MCC | Macro AUPRC |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| AAC | RF | 0.7404 | 0.7768 | 0.7271 | 0.7439 | 0.7411 | 0.6658 | 0.8208 |
+| AAC | LGBM | 0.7182 | 0.7167 | 0.7474 | 0.7296 | 0.7192 | 0.6454 | 0.8229 |
+| AAC | LinearSVM | 0.4001 | 0.4079 | 0.2258 | 0.2186 | 0.3102 | 0.1434 | 0.2887 |
+| AAC | RBF_SVM | 0.4396 | 0.4279 | 0.4128 | 0.4169 | 0.4414 | 0.2849 | 0.3942 |
+| AAC | HardVote | 0.7354 | 0.7994 | 0.7118 | 0.7438 | 0.7346 | 0.6563 | — |
+| AAC | SoftVote | 0.7323 | 0.7823 | 0.7154 | 0.7417 | 0.7310 | 0.6518 | 0.8141 |
+| AAC | Stacking | 0.7454 | 0.7081 | 0.7856 | 0.7394 | 0.7473 | 0.6844 | 0.8631 |
+| DPC | RF | 0.8138 | 0.9044 | 0.7739 | 0.8228 | 0.8123 | 0.7601 | 0.9066 |
+| DPC | LGBM | 0.8777 | 0.9076 | 0.8821 | 0.8940 | 0.8782 | 0.8424 | 0.9523 |
+| DPC | LinearSVM | 0.5400 | 0.5889 | 0.4715 | 0.5049 | 0.5236 | 0.3853 | 0.5490 |
+| DPC | RBF_SVM | 0.5192 | 0.6537 | 0.4188 | 0.4721 | 0.5045 | 0.3506 | 0.5298 |
+| DPC | HardVote | 0.8301 | 0.9012 | 0.7990 | 0.8410 | 0.8298 | 0.7800 | — |
+| DPC | SoftVote | 0.8585 | 0.9080 | 0.8492 | 0.8752 | 0.8586 | 0.8167 | 0.9324 |
+| DPC | Stacking | 0.8777 | 0.8648 | 0.9027 | 0.8824 | 0.8780 | 0.8452 | 0.9605 |                                                                                                                           
 
 ### Per-feature-set checkpoints (`outputs/ckpt/`)
 
@@ -466,26 +464,7 @@ outputs/proba/<fname>_<model>_<hash>.npz
 
 The `<hash>` is derived from the tuned hyperparameters, so changing params automatically invalidates the cache.
 
-Each `.npz` contains:
-
-```text
-pva — validation probabilities, shape (n_val, n_classes)
-pte — test probabilities, shape (n_test, n_classes)
-pred — test predictions, shape (n_test,)
-used — the hyperparameters used (JSON string)
-```
-
 On rerun, cached probabilities are loaded — no retraining.
-
-### Feature matrix cache
-
-Feature matrices are cached on local disk at:
-
-```text
-/content/cache/features/
-```
-
-This is the fast-but-ephemeral part of Colab — the cache is lost when the VM restarts, but rebuilding features is minutes, not hours.
 
 
 ## 12. Caching and Resumability
@@ -504,78 +483,27 @@ is created.
 
 On rerun, any feature set with a `.done` marker is skipped entirely.
 
-### Per-model probability cache
-
-Each model's validation and test probabilities are saved to:
-
-```text
-outputs/proba/<feature>_<model>_<hash>.npz
-```
-
-The hash is derived from the tuned hyperparameters, so changing params invalidates the cache automatically.
-
-On rerun, cached probabilities are loaded — no retraining.
-
-### Feature matrix cache
-
-Feature matrices are cached on local disk at:
-
-```text
-/content/cache/features/
-```
-
-This is the fast-but-ephemeral part of Colab — the cache is lost when the VM restarts, but rebuilding from features is minutes, not hours.
-
-### What gets skipped after a crash
-
-| Component                         | Behavior            |
-| --------------------------------- | ------------------- |
-| Feature sets with `.done` markers | Fully skipped       |
-| Models with `.npz` files          | Loaded, not refit   |
-| Feature matrices cached           | Loaded, not rebuilt |
-
-If TPC crashes mid-run, AAC and DPC are already saved and are skipped on the next run.
-
----
-
 ## 13. Interpretability
 
-Two approaches are used.
+### Feature importance 
 
-### Feature importance (built-in)
+Available from Random Forest (impurity-based) 
 
-Available from Random Forest (impurity-based) and LightGBM (gain-based).
+<img width="1170" height="910" alt="importance_RF_AAC" src="https://github.com/user-attachments/assets/e5a3d0b1-ba91-4d25-97ad-b29403155214" />
 
-Plots are saved as:
+### SHAP values (LightGBM )
 
-```text
-importance_RF_AAC.png
-importance_LGBM_AAC.png
-```
+SHAP computes each feature's contribution to each prediction. The pipeline averages `|SHAP|` across samples and classes to produce a global feature importance ranking.
 
-### SHAP values (LightGBM only)
-
-SHAP computes each feature's contribution to each prediction. The pipeline averages `|SHAP|` across samples and classes to produce a global feature importance ranking, saved as:
-
-```text
-shap_LGBM_AAC.png
-```
-
+<img width="1184" height="881" alt="shap_LGBM_AAC" src="https://github.com/user-attachments/assets/40e8e13d-a251-49fa-aa2e-7965e3524da2" />
 The plot shows mean `|SHAP|` for the top 20 AAC features, sorted descending.
 
-SHAP top features on AAC:
+### Confusion MatriX
 
-```text
-W (tryptophan)
-H (histidine)
-A (alanine)
-E (glutamate)
-C (cysteine)
-```
+confusion matrix compares a model's predicted classes with the actual classes to show correct and incorrect classification to each class.
 
-This is consistent with enzyme biochemistry — W is enriched in membrane-associated oxidoreductases; H is a common catalytic and metal-binding residue; C is a frequent nucleophile.
+<img width="1170" height="910" alt="confusion_LGBM_AAC" src="https://github.com/user-attachments/assets/2f14367e-0896-4699-9dc9-daa91a710784" />
 
----
 
 ## 14. Results Summary
 
@@ -594,12 +522,17 @@ The highest ensemble macro F1 is **0.883** (Stacking on TPC_k1000).
 
 ### Observations
 
-Gradient boosting (LGBM) outperforms bagging (RF) on the higher-dimensional feature sets by 5–15 points.
+- **Sequence-order information improves classification.** LightGBM’s macro F1 increases from 0.730 with AAC to 0.894 with DPC, while TPC_k1000 yields a smaller improvement to 0.897. This suggests that dipeptide frequencies capture substantial class-discriminative information, with diminishing returns from additional sequence-order features.
 
-Sequence-order features (DPC, TPC_k1000) substantially outperform composition-only (AAC) and compression-only (SVD128).
+- **Dimensionality reduction may discard useful information.** SVD128 achieves a macro F1 of 0.780, below the 0.897 obtained with TPC_k1000. This suggests that the compressed representation may not preserve all class-relevant patterns captured by the selected tripeptide features.
 
-Stacking does not beat the best single model. The differences are consistent with the base models being highly correlated (they share training data and features).
+- **Model performance depends on feature representation.** LightGBM outperforms Random Forest on DPC and TPC_k1000, while Random Forest performs slightly better on AAC. This difference may reflect the models’ varying ability to capture informative patterns in sparse, high-dimensional features versus dense composition features.
 
+- **Ensembling provides no consistent improvement.** The best ensemble achieves a macro F1 of 0.883, below LightGBM’s 0.897 on TPC_k1000. Overlapping information among base models and weaker SVM predictions may limit the benefits of combining them.
+
+- **LinearSVM struggles to distinguish several classes.** Its macro F1 of 0.219 on AAC and low recall for multiple classes suggest that a linear decision boundary may not capture the relationships needed for effective classification. hyperparameter selection may also contribute.
+
+- **RBF-SVM shows limited performance with sparse, high-dimensional features.** Trained on only 2,000 sequences, it achieves relatively low macro F1 scores. Limited training coverage may contribute to poor recall for minority classes, although further experiments are needed to confirm this explanation.
 ---
 
 ## 15. Limitations
